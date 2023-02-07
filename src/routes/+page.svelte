@@ -40,9 +40,11 @@
             }
             acc.rows.push(row)
             return acc
-        }, {headers: new Set<string>(["username"]), rows: [] as {[label:string]: any}[]})
-
-        return {labels: Array.from(headers).sort(), rows}
+        }, {headers: new Set<string>(), rows: [] as {[label:string]: any}[]})
+        
+        const labels = Array.from(headers).sort()
+        labels.unshift("username")
+        return {labels, rows}
         
     }
 
