@@ -1,8 +1,7 @@
 <script lang="ts">
 
 	import DataTable, { Head, Body, Row, Cell } from '@smui/data-table';
-    type Metrics = {accuracy: number, runtime: number}
-    type Entry = {username: string, timestamp: number, datasets: {[dataset:string] : Metrics}}
+    type Entry = {username: string, timestamp: number, datasets: {[dataset:string] : {[metric:string]: number | string}}}
     type EntryLog = {[uuid:string]: Entry}
 
     type TableInfo = {labels:string[], rows: {[label:string]: any}[]}
