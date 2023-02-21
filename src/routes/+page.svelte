@@ -1,103 +1,114 @@
 <script lang="ts">
+	import DataTable, { Head, Body, Row, Cell, SortValue } from '@smui/data-table';
+	import IconButton from '@smui/icon-button';
+	import Tab, { Label } from '@smui/tab';
+	import TabBar from '@smui/tab-bar';
+	import { processResults, text2Kebab, capitalize } from '../preprocessing';
+	import { onMount } from 'svelte';
 
-	import DataTable, { Head, Body, Row, Cell } from '@smui/data-table';
-    type Entry = {username: string, timestamp: number, datasets: {[dataset:string] : {[metric:string]: number | string}}}
-    type EntryLog = {[uuid:string]: Entry}
+	// Attributes
+	const DATABASE_URL = 'https://csc-566-benchmarks-default-rtdb.firebaseio.com/';
+	let benchmarkData: BenchmarkDatabase | null = null;
+	let tableInfo: TableInfo;
+	let benchmarkSessions: string[] = ['Benchmark 2', 'Benchmark 3'];
+	let activeBenchmarkSession: string = benchmarkSessions[0];
+	let sort: string = 'username';
+	let sortDirection: Lowercase<keyof typeof SortValue> = 'ascending';
+	$: tableInfo =
+		benchmarkData != null && text2Kebab(activeBenchmarkSession) in benchmarkData
+			? processResults(benchmarkData[text2Kebab(activeBenchmarkSession)])
+			: { labels: [], rows: [] };
 
-    type TableInfo = {labels:string[], rows: {[label:string]: any}[]}
+	// Hooks
+	onMount(getBenchmarkData);
+	console.log(activeBenchmarkSession, tableInfo);
 
-    const DATABASE_URL = "https://csc-566-benchmarks-default-rtdb.firebaseio.com/"
-    const BENCHMARK_PATH = "benchmark-2.json"
+	// Logic
+	async function getBenchmarkData() {
+		let benchmarks = await Promise.all(
+			benchmarkSessions.map(text2Kebab).map((session) =>
+				fetch(DATABASE_URL + session + '.json', { method: 'GET' })
+					.then((res) => res.json())
+					.then((json) => [session, json])
+			)
+		);
+		let data = Object.fromEntries(
+			benchmarks.filter(([_, json]) => json != null)
+		) as BenchmarkDatabase;
+		benchmarkData = data;
+	}
 
-    async function getResults():Promise<TableInfo> {
-        let res = await fetch(DATABASE_URL + BENCHMARK_PATH, {method: "GET"})
-        let entryLog = await res.json() as EntryLog
-        return processResults(entryLog)
-    }
-
-    function processResults(results: EntryLog):TableInfo  {
-        // bin each by username, replacing with the largest timestamp
-        let entriesByUser =  Object.values(results).reduce((acc, entry) => {
-            const oldTimestamp = acc[entry.username]?.timestamp || 0
-            
-            if (oldTimestamp < entry.timestamp) {
-                acc[entry.username] = entry
-            }
-            return acc
-        }, {} as {[user:string]: Entry})
-
-        // Collect headers and flatten info into rows
-        let {headers, rows} = Object.values(entriesByUser).reduce((acc, entry) => {
-            let row: {[label:string]: number | string} = {username: entry.username}
-            
-            for (let dataset in entry.datasets) {
-                for (let [metric, value] of Object.entries(entry.datasets[dataset])) {
-                    let label = `${dataset} ${metric}`
-                    acc.headers.add(label)
-                    row[label] = value
-                }
-            }
-            acc.rows.push(row)
-            return acc
-        }, {headers: new Set<string>(), rows: [] as {[label:string]: any}[]})
-        
-        const labels = Array.from(headers).sort()
-        labels.unshift("username")
-        return {labels, rows}
-        
-    }
-
-
-    let resultsPromise = getResults()
-
+	function handleSort() {
+		let sortedRows = tableInfo.rows.sort((a, b) => {
+			const [aVal, bVal] = [a[sort], b[sort]][
+				sortDirection === 'ascending' ? 'slice' : 'reverse'
+			]();
+			if (typeof aVal === 'string' && typeof bVal === 'string') {
+				return aVal.localeCompare(bVal);
+			}
+			return Number(aVal) - Number(bVal);
+		});
+		tableInfo.rows = sortedRows;
+	}
 </script>
 
 <main>
-
-    <h1>CSC 566 Benchmark Results</h1>
-    {#await resultsPromise}
-{:then tableInfo}
-<DataTable table$aria-label="CSC 566 Benchmark Results" style="max-width: 100%;">
-	<Head>
-		<Row>
-                {#each tableInfo.labels as label}
-                <Cell>{label}</Cell>
-                {/each}
-		</Row>
-	</Head>
-	<Body>
-        {#each tableInfo.rows as row}
-            <Row>
-                {#each tableInfo.labels as label}
-                <Cell>{row[label] || " "}</Cell>
-                {/each}
-            </Row>
-	    {/each}
-	</Body>
-</DataTable>
-{:catch error}
-	<p style="color: red">{error.message}</p>
-{/await}
-
+	<h1>CSC 566 Benchmark Results</h1>
+	<TabBar tabs={benchmarkSessions} bind:active={activeBenchmarkSession} let:tab>
+		<Tab {tab}>
+			<Label>{tab}</Label>
+		</Tab>
+	</TabBar>
+	{#if benchmarkData != null}
+		<DataTable
+			table$aria-label="CSC 566 Benchmark Results"
+			style="max-width: 100%;"
+			sortable
+			bind:sort
+			bind:sortDirection
+			on:SMUIDataTable:sorted={handleSort}
+		>
+			<Head>
+				<Row>
+					{#each tableInfo.labels as label}
+						<Cell columnId={label}>
+							<Label
+								>{label
+									.split(/[ _-]+/)
+									.map(capitalize)
+									.join(' ')}</Label
+							>
+							<IconButton class="material-icons">arrow_upward</IconButton>
+						</Cell>
+					{/each}
+				</Row>
+			</Head>
+			<Body>
+				{#each tableInfo.rows as row}
+					<Row>
+						{#each tableInfo.labels as label}
+							<Cell>{row[label] || ' '}</Cell>
+						{/each}
+					</Row>
+				{/each}
+			</Body>
+		</DataTable>
+	{:else}
+		<p style="color: red">Could not load data</p>
+	{/if}
 </main>
 
-
-
-
-
 <style>
-main {
-    padding: 30px;
-    display: flex;
-    justify-content: center;
-    flex-direction: column;
-}
+	main {
+		padding: 30px;
+		display: flex;
+		justify-content: center;
+		flex-direction: column;
+	}
 
-h1 {
-    margin:auto;
-    margin-bottom: 40px;
-    margin-top: 30px;
-}
-
-
+	h1 {
+		margin: auto;
+		margin-bottom: 40px;
+		margin-top: 30px;
+	}
 </style>
