@@ -21,7 +21,6 @@
 
 	// Hooks
 	onMount(getBenchmarkData);
-	console.log(activeBenchmarkSession, tableInfo);
 
 	// Logic
 	async function getBenchmarkData() {
