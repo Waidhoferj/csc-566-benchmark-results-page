@@ -10,7 +10,7 @@
 	const DATABASE_URL = 'https://csc-566-benchmarks-default-rtdb.firebaseio.com/';
 	let benchmarkData: BenchmarkDatabase | null = null;
 	let tableInfo: TableInfo;
-	let benchmarkSessions: string[] = ['Benchmark 2', 'Benchmark 3'];
+	let benchmarkSessions: string[] = ['Benchmark 2', 'Benchmark 3', 'Benchmark 4'];
 	let activeBenchmarkSession: string = benchmarkSessions[0];
 	let sort: string = 'username';
 	let sortDirection: Lowercase<keyof typeof SortValue> = 'ascending';
